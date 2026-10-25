@@ -1,0 +1,44 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Terraviva Programs</title><link rel="icon" href="logo.png">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+:root{--g:#2e7d32;--bg:#f3f7f4;--c:#fff;--tx:#17301f;--mu:#5c7165;--bd:#dbe6df}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1a14;--c:#17251d;--tx:#e6f0ea;--mu:#9bb0a3;--bd:#27382e}}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif;background:var(--bg);color:var(--tx)}
+header{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--c);border-bottom:1px solid var(--bd);flex-wrap:wrap}header img{height:40px}
+nav{display:flex;gap:6px;flex:1;flex-wrap:wrap}nav button{background:none;color:var(--tx)}nav button.on{background:var(--g);color:#fff}header a{color:var(--g);font-size:14px}
+main{padding:16px;max-width:1000px;margin:auto}.card{background:var(--c);border:1px solid var(--bd);border-radius:14px;padding:18px;margin-bottom:14px}
+input,select,textarea{width:100%;padding:10px;margin:4px 0 10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font:inherit}input[type=checkbox]{width:auto}
+label{display:block;font-size:13px;color:var(--mu)}button{background:var(--g);color:#fff;border:0;border-radius:8px;padding:10px 16px;cursor:pointer;font:inherit}button.s{background:var(--bd);color:var(--tx)}
+.mu{color:var(--mu);font-size:13px}.msg{color:#c62828;font-size:14px}.row{display:flex;gap:10px;flex-wrap:wrap}.row>*{flex:1;min-width:170px}
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:8px;border-bottom:1px solid var(--bd)}.tw{overflow-x:auto}
+</style></head><body><header><img src="logo.png" alt="Terraviva"><nav id="nav"></nav><a href="/">Dashboard</a><a href="/manage.html">Manage</a><a href="/reports.html">Reports</a></header><main id="m"><p class="mu">Loading…</p></main>
+<script>
+const sb=supabase.createClient('https://rhkdzihvndbfanhodlex.supabase.co','sb_publishable_CRzNoKrPLp-G6o6P98Ua6w_-0VhGfpp');
+const $=s=>document.querySelector(s),m=$('#m'),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let me,uid,depts=[],tab='ev';const ST=['Draft','Planned','Approved','Active','On Hold','Completed','Cancelled'];
+const CF={events:[['title','Title'],['event_type','Type','sel',['Training','Seminar','Workshop','Community Meeting','Awareness Campaign','Field Demonstration','Capacity-Building Session','Other']],['department_id','Department','dept'],['start_date','Start date','date'],['end_date','End date','date'],['venue','Venue'],['facilitator','Facilitator'],['target_participants','Target participants','number'],['status','Status','sel',['Planned','In Progress','Completed','Cancelled']]],
+projects:[['name','Name'],['description','Description','area'],['department_id','Department','dept'],['status','Status','sel',ST],['start_date','Start date','date'],['end_date','End date','date'],['funder','Funding organization'],['target_beneficiaries','Target beneficiaries','number']]};
+(async()=>{const{data:{user}}=await sb.auth.getUser();if(!user)return m.innerHTML='<p>Please <a href="/">sign in</a> first.</p>';uid=user.id;
+me=(await sb.from('profiles').select('*').eq('id',uid).single()).data;if(!me)return m.innerHTML='<p class="mu">No access.</p>';
+depts=(await sb.from('departments').select('*').order('name')).data||[];nav()})();
+function nav(){const t={ev:'Events',pr:'Projects',dc:'Documents'};$('#nav').innerHTML=Object.entries(t).map(([k,v])=>`<button data-k="${k}" class="${k==tab?'on':''}">${v}</button>`).join('');
+document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.k;nav()});({ev:()=>list('events','title'),pr:()=>list('projects','name'),dc:docs})[tab]()}
+const canEdit=t=>t=='events'?['super_admin','org_admin','dept_manager'].includes(me.role):['super_admin','org_admin'].includes(me.role);
+async function list(t,nm){const{data}=await sb.from(t).select('*').order('created_at',{ascending:false});const dn=Object.fromEntries(depts.map(d=>[d.id,d.name]));
+m.innerHTML=`<div class="card tw"><table><tr><th>${t=='events'?'Event':'Project'}</th><th>Department</th><th>Status</th><th>Dates</th><th></th></tr>${(data||[]).map(x=>`<tr><td>${esc(x[nm])}</td><td>${esc(dn[x.department_id])}</td><td>${x.status}</td><td>${x.start_date||''} → ${x.end_date||''}</td><td>${canEdit(t)?`<button class="s" data-id="${x.id}">Edit</button>`:''}</td></tr>`).join('')||'<tr><td colspan=5 class="mu">Nothing recorded yet.</td></tr>'}</table></div>`;
+document.querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>form(t,nm,data.find(x=>x.id==b.dataset.id)))}
+function form(t,nm,row){const f=CF[t];m.innerHTML=`<div class="card"><b>Edit ${esc(row[nm])}</b><div class="row">${f.map(([k,l,ty,o],i)=>`<div><label>${l}</label>${ty=='sel'?`<select id="f${i}">${o.map(v=>`<option ${row[k]==v?'selected':''}>${v}</option>`).join('')}</select>`:ty=='dept'?`<select id="f${i}">${depts.map(d=>`<option value="${d.id}" ${row[k]==d.id?'selected':''}>${esc(d.name)}</option>`).join('')}</select>`:ty=='area'?`<textarea id="f${i}" rows="3">${esc(row[k])}</textarea>`:`<input id="f${i}" type="${ty||'text'}" value="${esc(row[k])}">`}</div>`).join('')}</div><p class="msg" id="er"></p><button id="sv">Save changes</button> <button class="s" id="cn">Cancel</button></div>`;
+$('#cn').onclick=nav;$('#sv').onclick=async()=>{const u={};f.forEach(([k,l,ty],i)=>{const v=$('#f'+i).value;u[k]=ty=='number'?(v===''?null:+v):(v===''&&ty!='dept'&&k!=nm&&k!='status'&&k!='event_type'?null:v)});
+const r=await sb.from(t).update(u).eq('id',row.id).select();if(r.error)return $('#er').textContent=r.error.message;if(!r.data.length)return $('#er').textContent='You are not allowed to edit this record.';nav()}}
+async function docs(){const[e,p,d]=await Promise.all([sb.from('events').select('id,title'),sb.from('projects').select('id,name'),sb.from('documents').select('*').order('created_at',{ascending:false})]);
+const lab={};(e.data||[]).forEach(x=>lab[x.id]='Event: '+x.title);(p.data||[]).forEach(x=>lab[x.id]='Project: '+x.name);const canU=['super_admin','org_admin','dept_manager','project_officer','me_officer'].includes(me.role);
+const opts=[...(e.data||[]).map(x=>`<option value="event:${x.id}">Event: ${esc(x.title)}</option>`),...(p.data||[]).map(x=>`<option value="project:${x.id}">Project: ${esc(x.name)}</option>`)].join('');
+m.innerHTML=`${canU?`<div class="card"><b>Upload a document</b><div class="row"><div><label>Title</label><input id="d1"></div><div><label>Attach to</label><select id="d2"><option value="">— None —</option>${opts}</select></div></div><label>File (max 10 MB)</label><input id="d3" type="file"><label><input id="d4" type="checkbox"> Share with donors</label><p class="msg" id="er"></p><button id="sv">Upload</button></div>`:''}
+<div class="card tw"><b>Documents</b><table><tr><th>Title</th><th>Attached to</th><th>Visibility</th><th></th></tr>${(d.data||[]).map(x=>`<tr><td>${esc(x.title)}</td><td>${esc(lab[x.linked_id]||'—')}</td><td>${x.shared_with_donors?'Shared with donors':'Staff only'}</td><td><button class="s" data-dl="${x.path}">Download</button> ${['super_admin','org_admin'].includes(me.role)||x.uploaded_by==uid?`<button class="s" data-rm="${x.id}" data-p="${x.path}">Delete</button>`:''}</td></tr>`).join('')||'<tr><td colspan=4 class="mu">No documents yet.</td></tr>'}</table></div>`;
+document.querySelectorAll('[data-dl]').forEach(b=>b.onclick=async()=>{const r=await sb.storage.from('documents').createSignedUrl(b.dataset.dl,60);if(r.error)alert(r.error.message);else window.open(r.data.signedUrl,'_blank')});
+document.querySelectorAll('[data-rm]').forEach(b=>b.onclick=async()=>{if(!confirm('Delete this document?'))return;await sb.storage.from('documents').remove([b.dataset.p]);await sb.from('documents').delete().eq('id',b.dataset.rm);docs()});
+if(canU)$('#sv').onclick=async()=>{const f=$('#d3').files[0],ti=$('#d1').value.trim();if(!f||!ti)return $('#er').textContent='Title and file are required.';if(f.size>10485760)return $('#er').textContent='File is larger than 10 MB.';
+const path=uid+'/'+Date.now()+'_'+f.name.replace(/[^\w.\-]/g,'_');const u=await sb.storage.from('documents').upload(path,f);if(u.error)return $('#er').textContent=u.error.message;
+const[ty,id]=($('#d2').value||':').split(':');const r=await sb.from('documents').insert({title:ti,path,linked_type:ty||null,linked_id:id||null,shared_with_donors:$('#d4').checked});if(r.error)$('#er').textContent=r.error.message;else docs()}}
+</script></body></html>
