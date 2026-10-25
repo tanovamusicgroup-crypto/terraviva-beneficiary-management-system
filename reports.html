@@ -1,0 +1,23 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Terraviva Reports</title><link rel="icon" href="logo.png">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+:root{--g:#2e7d32;--bg:#f3f7f4;--c:#fff;--tx:#17301f;--mu:#5c7165;--bd:#dbe6df}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1a14;--c:#17251d;--tx:#e6f0ea;--mu:#9bb0a3;--bd:#27382e}}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif;background:var(--bg);color:var(--tx)}
+header{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--c);border-bottom:1px solid var(--bd)}header img{height:40px}header a{margin-left:auto;color:var(--g)}
+main{padding:16px;max-width:1000px;margin:auto}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px}
+.card{background:var(--c);border:1px solid var(--bd);border-radius:14px;padding:18px}.n{font-size:28px;font-weight:700;color:var(--g)}.mu{color:var(--mu);font-size:13px}
+.bar{height:10px;background:var(--g);border-radius:5px}button{background:var(--g);color:#fff;border:0;border-radius:8px;padding:10px 16px;margin:4px 4px 0 0;cursor:pointer;font:inherit}
+</style></head><body><header><img src="logo.png" alt="Terraviva"><b>Reports</b><a href="/">← Back to system</a></header><main id="m"><p class="mu">Loading…</p></main>
+<script>
+const sb=supabase.createClient('https://rhkdzihvndbfanhodlex.supabase.co','sb_publishable_CRzNoKrPLp-G6o6P98Ua6w_-0VhGfpp');
+const m=document.getElementById('m'),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const bars=(t,a)=>{const mx=Math.max(1,...a.map(x=>x.n));return`<div class="card"><b>${t}</b>${a.map(x=>`<p class="mu">${esc(x.name)} — ${x.n}</p><div class="bar" style="width:${x.n/mx*100}%"></div>`).join('')||'<p class="mu">No data yet.</p>'}</div>`};
+const csv=async(tbl,name)=>{const{data,error}=await sb.from(tbl).select('*');if(error)return alert(error.message);if(!data.length)return alert('No data to export.');const k=Object.keys(data[0]);const c=[k,...data.map(r=>k.map(x=>r[x]))].map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type:'text/csv'}));a.download=name+'.csv';a.click()};
+(async()=>{const{data:{user}}=await sb.auth.getUser();if(!user)return m.innerHTML='<p>Please <a href="/">sign in</a> first.</p>';
+const p=(await sb.from('profiles').select('role').eq('id',user.id).single()).data;const{data:s,error}=await sb.rpc('donor_summary');if(error||!s)return m.innerHTML='<p class="mu">You do not have access to reports.</p>';
+m.innerHTML=`<div class="grid">${[['Total Beneficiaries',s.total],['Projects',s.projects],['Events',s.events],['Completed Events',s.completed_events],['Attendance Rate',s.attendance_rate+'%']].map(([k,v])=>`<div class="card"><div class="n">${v}</div><div class="mu">${k}</div></div>`).join('')}</div><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">${bars('Beneficiaries by Department',s.by_department)}${bars('Beneficiaries by Gender',s.by_sex)}</div>
+${p&&p.role!='donor'?'<div class="card"><b>Export data (CSV)</b><br><button data-t="beneficiaries">Beneficiaries</button><button data-t="events">Events</button><button data-t="attendance">Attendance</button><button data-t="projects">Projects</button></div>':'<p class="mu">Summary view. Individual beneficiary details are not shown to donors.</p>'}`;
+m.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>csv(b.dataset.t,'terraviva_'+b.dataset.t))})();
+</script></body></html>
