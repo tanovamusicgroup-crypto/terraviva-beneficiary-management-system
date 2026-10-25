@@ -1,0 +1,52 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Terraviva Manage</title><link rel="icon" href="logo.png">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+:root{--g:#2e7d32;--bg:#f3f7f4;--c:#fff;--tx:#17301f;--mu:#5c7165;--bd:#dbe6df}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1a14;--c:#17251d;--tx:#e6f0ea;--mu:#9bb0a3;--bd:#27382e}}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif;background:var(--bg);color:var(--tx)}
+header{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--c);border-bottom:1px solid var(--bd);flex-wrap:wrap}header img{height:40px}
+nav{display:flex;gap:6px;flex:1}nav button{background:none;color:var(--tx)}nav button.on{background:var(--g);color:#fff}header a{color:var(--g)}
+main{padding:16px;max-width:1000px;margin:auto}.card{background:var(--c);border:1px solid var(--bd);border-radius:14px;padding:18px;margin-bottom:14px}
+input,select,textarea{width:100%;padding:10px;margin:4px 0 10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font:inherit}
+label{display:block;font-size:13px;color:var(--mu)}button{background:var(--g);color:#fff;border:0;border-radius:8px;padding:10px 16px;cursor:pointer;font:inherit}button.s{background:var(--bd);color:var(--tx)}
+.mu{color:var(--mu);font-size:13px}.msg{color:#c62828;font-size:14px}.ok{color:var(--g);font-size:14px}.row{display:flex;gap:10px;flex-wrap:wrap}.row>*{flex:1;min-width:150px}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:7px;border-bottom:1px solid var(--bd);vertical-align:top}.tw{overflow-x:auto}.msgb{padding:8px 0;border-bottom:1px solid var(--bd)}
+</style></head><body><header><img src="logo.png" alt="Terraviva"><nav id="nav"></nav><a href="/">← Back to system</a></header><main id="m"><p class="mu">Loading…</p></main>
+<script>
+const sb=supabase.createClient('https://rhkdzihvndbfanhodlex.supabase.co','sb_publishable_CRzNoKrPLp-G6o6P98Ua6w_-0VhGfpp');
+const $=s=>document.querySelector(s),m=$('#m'),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let me,tab='ed';const fmt=d=>new Date(d).toLocaleString();
+(async()=>{const{data:{user}}=await sb.auth.getUser();if(!user)return m.innerHTML='<p>Please <a href="/">sign in</a> first.</p>';
+me=(await sb.from('profiles').select('*').eq('id',user.id).single()).data;if(!me)return m.innerHTML='<p class="mu">No access.</p>';nav()})();
+function nav(){const t={ed:'Edit Beneficiaries',di:'Discussions'};if(['super_admin','org_admin'].includes(me.role))t.au='Audit Log';
+$('#nav').innerHTML=Object.entries(t).map(([k,v])=>`<button data-k="${k}" class="${k==tab?'on':''}">${v}</button>`).join('');
+document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.k;nav()});({ed,di,au})[tab]()}
+async function ed(){const canW=['super_admin','org_admin','dept_manager','data_entry'].includes(me.role);
+if(!canW)return m.innerHTML='<p class="mu">Your role cannot edit beneficiary records.</p>';
+m.innerHTML='<div class="card"><label>Search by name or ID</label><input id="q" placeholder="Type to search…"></div><div id="res"></div>';
+const go=async()=>{const q=$('#q').value.trim();let r=sb.from('beneficiaries').select('*').order('created_at',{ascending:false}).limit(25);if(q)r=r.or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,code.ilike.%${q}%`);const{data}=await r;
+$('#res').innerHTML=`<div class="card tw"><table><tr><th>ID</th><th>Name</th><th>Status</th><th></th></tr>${(data||[]).map(b=>`<tr><td>${b.code}</td><td>${esc(b.first_name+' '+b.last_name)}</td><td>${b.status}</td><td><button class="s" data-id="${b.id}">Edit</button></td></tr>`).join('')||'<tr><td colspan=4 class="mu">No records found.</td></tr>'}</table></div>`;
+document.querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>form(data.find(x=>x.id==b.dataset.id)))};
+$('#q').oninput=go;go();
+function form(b){$('#res').innerHTML=`<div class="card"><b>${b.code}</b><div class="row"><div><label>First name</label><input id="e1" value="${esc(b.first_name)}"></div><div><label>Middle name</label><input id="e2" value="${esc(b.middle_name)}"></div><div><label>Last name</label><input id="e3" value="${esc(b.last_name)}"></div></div>
+<div class="row"><div><label>Sex</label><select id="e4">${['','Female','Male','Other'].map(x=>`<option ${b.sex==x||(!b.sex&&!x)?'selected':''}>${x}</option>`).join('')}</select></div><div><label>Phone</label><input id="e5" value="${esc(b.phone)}"></div><div><label>Email</label><input id="e6" value="${esc(b.email)}"></div></div>
+<div class="row"><div><label>Category</label><input id="e7" value="${esc(b.category)}"></div><div><label>Status</label><select id="e8">${['Active','Inactive','Pending Review'].map(x=>`<option ${b.status==x?'selected':''}>${x}</option>`).join('')}</select></div></div>
+<label>Notes</label><textarea id="e9" rows="3">${esc(b.notes)}</textarea><p class="msg" id="er"></p><button id="sv">Save changes</button> <button class="s" id="cn">Cancel</button></div>`;
+$('#cn').onclick=go;$('#sv').onclick=async()=>{const r=await sb.from('beneficiaries').update({first_name:$('#e1').value,middle_name:$('#e2').value||null,last_name:$('#e3').value,sex:$('#e4').value||null,phone:$('#e5').value||null,email:$('#e6').value||null,category:$('#e7').value||null,status:$('#e8').value,notes:$('#e9').value||null}).eq('id',b.id).select();
+if(r.error)return $('#er').textContent=r.error.message;if(!r.data.length)return $('#er').textContent='You are not allowed to edit this record.';ed()}}}
+async function di(open){if(open)return thread(open);const{data}=await sb.from('threads').select('*').order('created_at',{ascending:false});
+m.innerHTML=`<div class="card"><b>Start a discussion</b><label>Title</label><input id="t1"><label>Audience</label><select id="t2">${me.role=='donor'?'':'<option value="internal">Internal (staff only)</option>'}<option value="donor">Shared with donors</option></select><label>Message</label><textarea id="t3" rows="3"></textarea><p class="msg" id="er"></p><button id="sv">Post</button></div>
+<div class="card"><b>Discussions</b>${(data||[]).map(t=>`<p><a href="#" data-t="${t.id}">${esc(t.title)}</a> <span class="mu">· ${t.visibility=='donor'?'Shared with donors':'Internal'} · ${fmt(t.created_at)}</span></p>`).join('')||'<p class="mu">No discussions yet.</p>'}</div>`;
+document.querySelectorAll('[data-t]').forEach(a=>a.onclick=e=>{e.preventDefault();thread(a.dataset.t)});
+$('#sv').onclick=async()=>{if(!$('#t1').value.trim()||!$('#t3').value.trim())return $('#er').textContent='Title and message are required.';
+const t=await sb.from('threads').insert({title:$('#t1').value.trim(),visibility:$('#t2').value}).select().single();if(t.error)return $('#er').textContent=t.error.message;
+const r=await sb.from('messages').insert({thread_id:t.data.id,body:$('#t3').value.trim()});if(r.error)return $('#er').textContent=r.error.message;thread(t.data.id)}}
+async function thread(id){const[t,ms]=await Promise.all([sb.from('threads').select('*').eq('id',id).single(),sb.from('messages').select('*').eq('thread_id',id).order('created_at')]);
+m.innerHTML=`<button class="s" id="bk">← All discussions</button><div class="card"><h3>${esc(t.data?.title)}</h3><p class="mu">${t.data?.visibility=='donor'?'Shared with donors':'Internal'}</p>${(ms.data||[]).map(x=>`<div class="msgb"><b>${esc(x.author_name||'User')}</b> <span class="mu">${fmt(x.created_at)}</span><br>${esc(x.body).replace(/\n/g,'<br>')}</div>`).join('')}
+<label>Reply</label><textarea id="rp" rows="3"></textarea><p class="msg" id="er"></p><button id="sv">Send</button></div>`;
+$('#bk').onclick=()=>di();$('#sv').onclick=async()=>{const b=$('#rp').value.trim();if(!b)return;const r=await sb.from('messages').insert({thread_id:id,body:b});if(r.error)$('#er').textContent=r.error.message;else thread(id)}}
+async function au(){const[a,p]=await Promise.all([sb.from('audit_log').select('*').order('at',{ascending:false}).limit(100),sb.from('profiles').select('id,full_name')]);const nm=Object.fromEntries((p.data||[]).map(x=>[x.id,x.full_name]));
+const what=r=>r.action=='UPDATE'?Object.keys(r.details.new).filter(k=>JSON.stringify(r.details.new[k])!=JSON.stringify(r.details.old[k])).join(', '):(r.details?.code||r.details?.title||r.details?.name||r.details?.first_name||'');
+m.innerHTML=`<div class="card tw"><b>Recent activity (last 100)</b><table><tr><th>When</th><th>User</th><th>Action</th><th>Record type</th><th>Detail</th></tr>${(a.data||[]).map(r=>`<tr><td>${fmt(r.at)}</td><td>${esc(nm[r.user_id]||'System')}</td><td>${r.action}</td><td>${r.table_name}</td><td>${esc(what(r))}</td></tr>`).join('')||'<tr><td colspan=5 class="mu">No activity recorded yet.</td></tr>'}</table></div>`}
+</script></body></html>
