@@ -1,0 +1,31 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Terraviva Departments</title><link rel="icon" href="logo.png">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script><script src="shared.js"></script>
+<style>
+:root{--g:#2e7d32;--bg:#f3f7f4;--c:#fff;--tx:#17301f;--mu:#5c7165;--bd:#dbe6df}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1a14;--c:#17251d;--tx:#e6f0ea;--mu:#9bb0a3;--bd:#27382e}}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif;background:var(--bg);color:var(--tx)}
+header{display:flex;align-items:center;gap:14px;padding:10px 16px;background:var(--c);border-bottom:1px solid var(--bd);flex-wrap:wrap}header img{height:40px}header a{color:var(--g);font-size:14px}header a:first-of-type{margin-left:auto}
+main{padding:16px;max-width:1000px;margin:auto}.card{background:var(--c);border:1px solid var(--bd);border-radius:14px;padding:18px;margin-bottom:14px}
+input{width:100%;padding:10px;margin:4px 0 10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font:inherit}label{display:block;font-size:13px;color:var(--mu)}
+button{background:var(--g);color:#fff;border:0;border-radius:8px;padding:8px 12px;cursor:pointer;font:inherit;margin:2px}button.s{background:var(--bd);color:var(--tx)}button.d{background:#c62828}
+.mu{color:var(--mu);font-size:13px}.msg{color:#c62828;font-size:14px}.row{display:flex;gap:10px;flex-wrap:wrap}.row>*{flex:1;min-width:200px}
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:8px;border-bottom:1px solid var(--bd);vertical-align:middle}td input{margin:0}.tw{overflow-x:auto}
+</style></head><body><header><img src="logo.png" alt="Terraviva"><b>Departments</b><a href="/">Dashboard</a><a href="/programs.html">Programs</a><a href="/manage.html">Manage</a></header><main id="m"><p class="mu">Loading…</p></main>
+<script>
+const sb=supabase.createClient('https://rhkdzihvndbfanhodlex.supabase.co','sb_publishable_CRzNoKrPLp-G6o6P98Ua6w_-0VhGfpp');
+const $=s=>document.querySelector(s),m=$('#m'),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+(async()=>{const{data:{user}}=await sb.auth.getUser();if(!user)return m.innerHTML='<p>Please <a href="/">sign in</a> first.</p>';
+const me=(await sb.from('profiles').select('role').eq('id',user.id).single()).data;if(!me||me.role!='super_admin')return m.innerHTML='<p class="mu">Only the Super Administrator can manage departments.</p>';load()})();
+const cnt=async(t,id)=>(await sb.from(t).select('id',{count:'exact',head:true}).eq('department_id',id)).count||0;
+async function load(){const D=(await sb.from('departments').select('*').order('name')).data||[];
+const C=await Promise.all(D.map(async d=>({id:d.id,b:await cnt('beneficiaries',d.id),e:await cnt('events',d.id),p:await cnt('projects',d.id)})));const c=Object.fromEntries(C.map(x=>[x.id,x]));
+m.innerHTML=`<div class="card"><b>Add a department</b><div class="row"><div><label>Name</label><input id="n1"></div><div><label>Description</label><input id="n2"></div></div><p class="msg" id="er"></p><button id="add">Add department</button></div>
+<div class="card tw"><table><tr><th>Name</th><th>Description</th><th>Records</th><th>Status</th><th></th></tr>${D.map(d=>`<tr data-id="${d.id}"><td><input class="nm" value="${esc(d.name)}"></td><td><input class="ds" value="${esc(d.description)}"></td><td class="mu">${c[d.id].b} beneficiaries<br>${c[d.id].e} events · ${c[d.id].p} projects</td><td>${d.active?'Active':'Deactivated'}</td><td><button class="sv">Save</button><button class="s tg">${d.active?'Deactivate':'Reactivate'}</button><button class="d dl">Delete</button></td></tr>`).join('')}</table>
+<p class="mu">Deactivating hides a department from new forms but keeps all its history. Delete is only possible for a department with no records.</p><p class="msg" id="er2"></p></div>`;
+$('#add').onclick=async()=>{const n=$('#n1').value.trim();if(!n)return $('#er').textContent='Department name is required.';const r=await sb.from('departments').insert({name:n,description:$('#n2').value||null});if(r.error)$('#er').textContent=r.error.code=='23505'?'A department with this name already exists.':r.error.message;else load()};
+document.querySelectorAll('tr[data-id]').forEach(tr=>{const id=tr.dataset.id,d=D.find(x=>x.id==id);
+tr.querySelector('.sv').onclick=async()=>{const r=await sb.from('departments').update({name:tr.querySelector('.nm').value.trim(),description:tr.querySelector('.ds').value||null}).eq('id',id);$('#er2').textContent=r.error?r.error.message:'';if(!r.error)load()};
+tr.querySelector('.tg').onclick=async()=>{const r=await sb.from('departments').update({active:!d.active}).eq('id',id);if(r.error)$('#er2').textContent=r.error.message;else load()};
+tr.querySelector('.dl').onclick=async()=>{if(!confirm('Delete "'+d.name+'"? This cannot be undone.'))return;const r=await sb.from('departments').delete().eq('id',id);if(r.error)$('#er2').textContent=r.error.code=='23503'?'This department has records (beneficiaries, events, projects or users) and cannot be deleted. Deactivate it instead.':r.error.message;else load()}})}
+</script></body></html>
