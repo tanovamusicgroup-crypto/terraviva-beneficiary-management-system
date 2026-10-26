@@ -1,6 +1,6 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Terraviva Manage</title><link rel="icon" href="logo.png">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script><script src="shared.js"></script>
 <style>
 :root{--g:#2e7d32;--bg:#f3f7f4;--c:#fff;--tx:#17301f;--mu:#5c7165;--bd:#dbe6df}
 @media(prefers-color-scheme:dark){:root{--bg:#0f1a14;--c:#17251d;--tx:#e6f0ea;--mu:#9bb0a3;--bd:#27382e}}
@@ -12,7 +12,7 @@ input,select,textarea{width:100%;padding:10px;margin:4px 0 10px;border:1px solid
 label{display:block;font-size:13px;color:var(--mu)}button{background:var(--g);color:#fff;border:0;border-radius:8px;padding:10px 16px;cursor:pointer;font:inherit}button.s{background:var(--bd);color:var(--tx)}
 .mu{color:var(--mu);font-size:13px}.msg{color:#c62828;font-size:14px}.ok{color:var(--g);font-size:14px}.row{display:flex;gap:10px;flex-wrap:wrap}.row>*{flex:1;min-width:150px}
 table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:7px;border-bottom:1px solid var(--bd);vertical-align:top}.tw{overflow-x:auto}.msgb{padding:8px 0;border-bottom:1px solid var(--bd)}
-</style></head><body><header><img src="logo.png" alt="Terraviva"><nav id="nav"></nav><a href="/">← Back to system</a></header><main id="m"><p class="mu">Loading…</p></main>
+</style></head><body><header><img src="logo.png" alt="Terraviva"><nav id="nav"></nav><a href="/profile.html">My profile</a><a href="/">← Back to system</a></header><main id="m"><p class="mu">Loading…</p></main>
 <script>
 const sb=supabase.createClient('https://rhkdzihvndbfanhodlex.supabase.co','sb_publishable_CRzNoKrPLp-G6o6P98Ua6w_-0VhGfpp');
 const $=s=>document.querySelector(s),m=$('#m'),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -43,7 +43,8 @@ $('#sv').onclick=async()=>{if(!$('#t1').value.trim()||!$('#t3').value.trim())ret
 const t=await sb.from('threads').insert({title:$('#t1').value.trim(),visibility:$('#t2').value}).select().single();if(t.error)return $('#er').textContent=t.error.message;
 const r=await sb.from('messages').insert({thread_id:t.data.id,body:$('#t3').value.trim()});if(r.error)return $('#er').textContent=r.error.message;thread(t.data.id)}}
 async function thread(id){const[t,ms]=await Promise.all([sb.from('threads').select('*').eq('id',id).single(),sb.from('messages').select('*').eq('thread_id',id).order('created_at')]);
-m.innerHTML=`<button class="s" id="bk">← All discussions</button><div class="card"><h3>${esc(t.data?.title)}</h3><p class="mu">${t.data?.visibility=='donor'?'Shared with donors':'Internal'}</p>${(ms.data||[]).map(x=>`<div class="msgb"><b>${esc(x.author_name||'User')}</b> <span class="mu">${fmt(x.created_at)}</span><br>${esc(x.body).replace(/\n/g,'<br>')}</div>`).join('')}
+const ids=[...new Set((ms.data||[]).map(x=>x.author_id).filter(Boolean))];const pp=ids.length?Object.fromEntries(((await sb.rpc('people',{ids})).data||[]).map(x=>[x.id,x])):{};
+m.innerHTML=`<button class="s" id="bk">← All discussions</button><div class="card"><h3>${esc(t.data?.title)}</h3><p class="mu">${t.data?.visibility=='donor'?'Shared with donors':'Internal'}</p>${(ms.data||[]).map(x=>`<div class="msgb" style="display:flex;gap:10px">${avatarHTML(pp[x.author_id]?.avatar_path,pp[x.author_id]?.full_name||x.author_name,38)}<div><b>${esc(pp[x.author_id]?.full_name||x.author_name||'User')}</b> <span class="mu">${fmt(x.created_at)}</span><br>${esc(x.body).replace(/\n/g,'<br>')}</div></div>`).join('')}
 <label>Reply</label><textarea id="rp" rows="3"></textarea><p class="msg" id="er"></p><button id="sv">Send</button></div>`;
 $('#bk').onclick=()=>di();$('#sv').onclick=async()=>{const b=$('#rp').value.trim();if(!b)return;const r=await sb.from('messages').insert({thread_id:id,body:b});if(r.error)$('#er').textContent=r.error.message;else thread(id)}}
 async function au(){const[a,p]=await Promise.all([sb.from('audit_log').select('*').order('at',{ascending:false}).limit(100),sb.from('profiles').select('id,full_name')]);const nm=Object.fromEntries((p.data||[]).map(x=>[x.id,x.full_name]));
