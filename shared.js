@@ -12,5 +12,17 @@ if(t<=x.end_date){const i=diff(x.start_date,t)+1;return n==1?'Today':'Day '+i+' 
 const d=diff(x.end_date,t);return d==1?'Ended yesterday':'Ended '+d+' days ago'};
 window.statusCell=(x,st)=>badge(st)+'<div class="mu">'+when(x,st)+'</div>';
 window.tm=s=>s?String(s).slice(0,5):'';
+
+const SBU='https://rhkdzihvndbfanhodlex.supabase.co';
+window.avatarHTML=(p,name,sz)=>{sz=sz||32;let c=String(name||'?').trim()[0]||'?';c=/[A-Za-z0-9]/.test(c)?c.toUpperCase():'?';
+return p?`<img src="${SBU}/storage/v1/object/public/avatars/${p}" alt="" style="width:${sz}px;height:${sz}px;border-radius:50%;object-fit:cover;vertical-align:middle;flex:none">`:`<span style="display:inline-flex;align-items:center;justify-content:center;width:${sz}px;height:${sz}px;border-radius:50%;background:#2e7d32;color:#fff;font-weight:700;font-size:${Math.round(sz*.45)}px;vertical-align:middle;flex:none">${c}</span>`};
+window.openMedia=(kind,url,title,pdf)=>{const o=document.createElement('div');o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px';
+const bar=document.createElement('div');bar.style.cssText='color:#fff;width:100%;max-width:1100px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font:15px system-ui,sans-serif';
+const t=document.createElement('span');t.textContent=title||'';const x=document.createElement('button');x.textContent='✕ Close';x.style.cssText='background:#fff;color:#111;border:0;border-radius:8px;padding:8px 14px;cursor:pointer;font:inherit';bar.append(t,x);
+let el;if(kind=='video'){el=document.createElement('video');el.src=url;el.controls=true;el.autoplay=true;el.playsInline=true;el.style.cssText='max-width:94vw;max-height:80vh;background:#000'}
+else if(pdf){el=document.createElement('iframe');el.src=url;el.style.cssText='width:min(1100px,94vw);height:80vh;background:#fff;border:0'}
+else{el=document.createElement('img');el.src=url;el.alt=title||'';el.style.cssText='max-width:94vw;max-height:80vh;background:#fff'}
+const k=e=>{if(e.key=='Escape')close()};const close=()=>{if(el.pause)el.pause();o.remove();document.removeEventListener('keydown',k)};document.addEventListener('keydown',k);
+o.onclick=e=>{if(e.target===o)close()};x.onclick=close;o.append(bar,el);document.body.appendChild(o)};
 const el=document.createElement('style');el.textContent=css;document.head.appendChild(el);
 })();
