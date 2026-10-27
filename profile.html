@@ -11,15 +11,21 @@ input{width:100%;padding:10px;margin:4px 0 10px;border:1px solid var(--bd);borde
 button{background:var(--g);color:#fff;border:0;border-radius:8px;padding:10px 16px;cursor:pointer;font:inherit;margin:4px}button.s{background:var(--bd);color:var(--tx)}.mu{color:var(--mu);font-size:13px}.msg{color:#c62828;font-size:14px}.ok{color:var(--g);font-size:14px}
 </style></head><body><header><img src="logo.png" alt="Terraviva"><b>My profile</b><a href="/">Dashboard</a><a href="/programs.html">Programs</a><a href="/manage.html">Manage</a></header><main id="m"><p class="mu">Loading…</p></main>
 <script>
-const sb=supabase.createClient('https://rhkdzihvndbfanhodlex.supabase.co','sb_publishable_CRzNoKrPLp-G6o6P98Ua6w_-0VhGfpp');
+const sb=window.SB;
 const $=s=>document.querySelector(s),m=$('#m'),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let me,uid;
 (async()=>{const{data:{user}}=await sb.auth.getUser();if(!user)return m.innerHTML='<p>Please <a href="/">sign in</a> first.</p>';uid=user.id;load()})();
+async function mfaCard(){const fl=await sb.auth.mfa.listFactors();const f=(fl.data?.totp||[]).find(x=>x.status=='verified');
+$('#mf').innerHTML=f?'<b>Two-step verification</b><p class="ok">On</p><p class="mu">You are asked for a code from your authenticator app each time you sign in.</p><button style="background:#c62828" id="mo">Turn off</button>':'<b>Two-step verification</b><p class="mu">Add a second step with an authenticator app (Google Authenticator, Microsoft Authenticator, Authy…). Recommended for administrators.</p><button id="mn">Turn on</button><div id="me"></div>';
+if(f)$('#mo').onclick=async()=>{if(!confirm('Turn off two-step verification?'))return;const r=await sb.auth.mfa.unenroll({factorId:f.id});if(r.error)alert(r.error.message);else mfaCard()};
+else $('#mn').onclick=async()=>{for(const x of (fl.data?.all||[]).filter(x=>x.factor_type=='totp'&&x.status!='verified'))await sb.auth.mfa.unenroll({factorId:x.id});const r=await sb.auth.mfa.enroll({factorType:'totp'});if(r.error)return alert(r.error.message);
+$('#me').innerHTML=`<p>Scan this code with your authenticator app:</p><img src="${r.data.totp.qr_code}" alt="" style="width:180px;background:#fff;padding:6px"><p class="mu">Or type this key: <b>${r.data.totp.secret}</b></p><input id="mc" placeholder="6-digit code" inputmode="numeric" maxlength="6"><p class="msg" id="mer"></p><button id="mv">Confirm</button>`;
+$('#mv').onclick=async()=>{const ch=await sb.auth.mfa.challenge({factorId:r.data.id});if(ch.error)return $('#mer').textContent=ch.error.message;const v=await sb.auth.mfa.verify({factorId:r.data.id,challengeId:ch.data.id,code:$('#mc').value.trim()});if(v.error)$('#mer').textContent='Wrong code. Try again.';else mfaCard()}}}
 async function load(note){me=(await sb.from('profiles').select('*').eq('id',uid).single()).data;if(!me)return m.innerHTML='<p class="mu">No access.</p>';
 m.innerHTML=`<div class="card"><div id="pv">${avatarHTML(me.avatar_path,me.full_name,120)}</div><h2 style="margin:10px 0 0">${esc(me.full_name)}</h2><p class="mu">${esc((me.role||'').replace('_',' '))}</p>
 <label>Profile picture (JPG, PNG, WEBP or GIF, max 5 MB)</label><input id="f" type="file" accept="image/*"><p class="msg" id="er"></p><p class="ok" id="ok">${note||''}</p>
 <button id="up">Save picture</button>${me.avatar_path?'<button class="s" id="rm">Remove picture</button>':''}</div>
-<div class="card"><label>Display name</label><input id="n" value="${esc(me.full_name)}"><button id="sn">Save name</button></div>`;
+<div class="card"><label>Display name</label><input id="n" value="${esc(me.full_name)}"><button id="sn">Save name</button></div><div class="card" id="mf"></div>`;mfaCard();
 $('#f').onchange=e=>{const f=e.target.files[0];if(f)$('#pv').innerHTML=`<img src="${URL.createObjectURL(f)}" style="width:120px;height:120px;border-radius:50%;object-fit:cover">`};
 $('#up').onclick=async()=>{const f=$('#f').files[0];if(!f)return $('#er').textContent='Choose a picture first.';if(!f.type.startsWith('image/'))return $('#er').textContent='The file must be an image.';if(f.size>5242880)return $('#er').textContent='The picture is larger than 5 MB.';
 $('#up').disabled=true;$('#up').textContent='Saving…';const path=uid+'/'+Date.now()+'_'+f.name.replace(/[^\w.\-]/g,'_');const u=await sb.storage.from('avatars').upload(path,f,{contentType:f.type});
