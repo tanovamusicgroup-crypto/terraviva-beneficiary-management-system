@@ -14,14 +14,14 @@ label{display:block;font-size:13px;color:var(--mu)}button{background:var(--g);co
 table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:7px;border-bottom:1px solid var(--bd);vertical-align:top}.tw{overflow-x:auto}.msgb{padding:8px 0;border-bottom:1px solid var(--bd)}
 </style></head><body><header><img src="logo.png" alt="Terraviva"><nav id="nav"></nav><a href="/profile.html">My profile</a><a href="/">← Back to system</a></header><main id="m"><p class="mu">Loading…</p></main>
 <script>
-const sb=supabase.createClient('https://rhkdzihvndbfanhodlex.supabase.co','sb_publishable_CRzNoKrPLp-G6o6P98Ua6w_-0VhGfpp');
+const sb=window.SB;
 const $=s=>document.querySelector(s),m=$('#m'),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let me,tab='ed';const fmt=d=>new Date(d).toLocaleString();
 (async()=>{const{data:{user}}=await sb.auth.getUser();if(!user)return m.innerHTML='<p>Please <a href="/">sign in</a> first.</p>';
 me=(await sb.from('profiles').select('*').eq('id',user.id).single()).data;if(!me)return m.innerHTML='<p class="mu">No access.</p>';nav()})();
-function nav(){const t={ed:'Edit Beneficiaries',di:'Discussions'};if(['super_admin','org_admin'].includes(me.role))t.au='Audit Log';
+function nav(){const t={ed:'Edit Beneficiaries',di:'Discussions'};if(['super_admin','org_admin'].includes(me.role))t.au='Audit Log';if(me.role=='super_admin')t.bk='Backup';
 $('#nav').innerHTML=Object.entries(t).map(([k,v])=>`<button data-k="${k}" class="${k==tab?'on':''}">${v}</button>`).join('');
-document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.k;nav()});({ed,di,au})[tab]()}
+document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.k;nav()});({ed,di,au,bk})[tab]()}
 async function ed(){const canW=['super_admin','org_admin','dept_manager','data_entry'].includes(me.role);
 if(!canW)return m.innerHTML='<p class="mu">Your role cannot edit beneficiary records.</p>';
 m.innerHTML='<div class="card"><label>Search by name or ID</label><input id="q" placeholder="Type to search…"></div><div id="res"></div>';
@@ -47,6 +47,12 @@ const ids=[...new Set((ms.data||[]).map(x=>x.author_id).filter(Boolean))];const 
 m.innerHTML=`<button class="s" id="bk">← All discussions</button><div class="card"><h3>${esc(t.data?.title)}</h3><p class="mu">${t.data?.visibility=='donor'?'Shared with donors':'Internal'}</p>${(ms.data||[]).map(x=>`<div class="msgb" style="display:flex;gap:10px">${avatarHTML(pp[x.author_id]?.avatar_path,pp[x.author_id]?.full_name||x.author_name,38)}<div><b>${esc(pp[x.author_id]?.full_name||x.author_name||'User')}</b> <span class="mu">${fmt(x.created_at)}</span><br>${esc(x.body).replace(/\n/g,'<br>')}</div></div>`).join('')}
 <label>Reply</label><textarea id="rp" rows="3"></textarea><p class="msg" id="er"></p><button id="sv">Send</button></div>`;
 $('#bk').onclick=()=>di();$('#sv').onclick=async()=>{const b=$('#rp').value.trim();if(!b)return;const r=await sb.from('messages').insert({thread_id:id,body:b});if(r.error)$('#er').textContent=r.error.message;else thread(id)}}
+const TB=['beneficiaries','beneficiary_departments','events','event_participants','attendance','assessments','projects','project_indicators','followups','departments','categories','positions','locations','documents','published_reports','budgets','threads','messages','audit_log'];
+async function dlT(t){$('#st').textContent='Downloading '+t+'…';try{const oc=t=='beneficiary_departments'?'beneficiary_id':'id';const X=await fetchAll((f,to)=>sb.from(t).select('*').order(oc).range(f,to));if(!X.length){$('#st').textContent=t+': no rows.';return}
+const k=[...new Set(X.flatMap(r=>Object.keys(r)))];const c=[k,...X.map(r=>k.map(x=>{const v=r[x];return v!==null&&typeof v=='object'?JSON.stringify(v):v}))].map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\n');
+const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type:'text/csv'}));a.download='terraviva_'+t+'_'+new Date().toISOString().slice(0,10)+'.csv';a.click();$('#st').textContent=t+': '+X.length+' rows downloaded.'}catch(e){$('#st').textContent=t+': '+e.message}}
+function bk(){m.innerHTML=`<div class="card"><b>Backup</b><p class="mu">Download your data as CSV files and keep them somewhere safe, for example Google Drive. Do this regularly (weekly is a good habit). Uploaded files (documents, photos, videos) are not included in these CSV files.</p><button id="all">Download everything</button><div class="tw"><table>${TB.map(t=>`<tr><td>${t}</td><td><button class="s" data-t="${t}">Download CSV</button></td></tr>`).join('')}</table></div><p class="mu" id="st"></p></div>`;
+document.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>dlT(b.dataset.t));$('#all').onclick=async()=>{for(const t of TB){await dlT(t);await new Promise(r=>setTimeout(r,600))}}}
 async function au(){const[a,p]=await Promise.all([sb.from('audit_log').select('*').order('at',{ascending:false}).limit(100),sb.from('profiles').select('id,full_name')]);const nm=Object.fromEntries((p.data||[]).map(x=>[x.id,x.full_name]));
 const what=r=>r.action=='UPDATE'?Object.keys(r.details.new).filter(k=>JSON.stringify(r.details.new[k])!=JSON.stringify(r.details.old[k])).join(', '):(r.details?.code||r.details?.title||r.details?.name||r.details?.first_name||'');
 m.innerHTML=`<div class="card tw"><b>Recent activity (last 100)</b><table><tr><th>When</th><th>User</th><th>Action</th><th>Record type</th><th>Detail</th></tr>${(a.data||[]).map(r=>`<tr><td>${fmt(r.at)}</td><td>${esc(nm[r.user_id]||'System')}</td><td>${r.action}</td><td>${r.table_name}</td><td>${esc(what(r))}</td></tr>`).join('')||'<tr><td colspan=5 class="mu">No activity recorded yet.</td></tr>'}</table></div>`}
