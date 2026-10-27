@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://terraviva-beneficiary-management-sy.vercel.app/sitemap.xml
